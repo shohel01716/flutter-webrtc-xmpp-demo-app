@@ -6,7 +6,8 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 class CallSample extends StatefulWidget {
   static String tag = 'call_sample';
   final String host;
-  CallSample({required this.host});
+  final String pass;
+  CallSample({required this.host, required this.pass});
 
   @override
   _CallSampleState createState() => _CallSampleState();
@@ -45,7 +46,7 @@ class _CallSampleState extends State<CallSample> {
   }
 
   void _connect() async {
-    _signaling ??= Signaling(widget.host)..connect();
+    _signaling ??= Signaling(widget.host, widget.pass)..connect();
     _signaling?.onSignalingStateChange = (SignalingState state) {
       switch (state) {
         case SignalingState.ConnectionClosed:
@@ -78,9 +79,26 @@ class _CallSampleState extends State<CallSample> {
     };
 
     _signaling?.onPeersUpdate = ((event) {
+
+
       setState(() {
         _selfId = event['self'];
-        _peers = event['peers'];
+
+        bool isNotHaveID = true;
+        if(_peers.length > 0) {
+          _peers.forEach((element) {
+            if(element["id"] == event['peers']['id']){
+              isNotHaveID = false;
+            }
+          });
+
+          if(isNotHaveID){
+            _peers.add(event['peers']);
+          }
+
+        }else{
+          _peers.add(event['peers']);
+        }
       });
     });
 
@@ -89,12 +107,17 @@ class _CallSampleState extends State<CallSample> {
     });
 
     _signaling?.onAddRemoteStream = ((_, stream) {
+      setState(() {
       _remoteRenderer.srcObject = stream;
+      });
+
+      print(' stream.id ' + stream.id.toString());
+
     });
 
-    _signaling?.onRemoveRemoteStream = ((_, stream) {
+    /*_signaling?.onRemoveRemoteStream = ((_, stream) {
       _remoteRenderer.srcObject = null;
-    });
+    });*/
   }
 
   _invitePeer(BuildContext context, String peerId, bool useScreen) async {
@@ -126,7 +149,7 @@ class _CallSampleState extends State<CallSample> {
             : peer['name'] + ', ID: ${peer['id']} '),
         onTap: null,
         trailing: SizedBox(
-            width: 100.0,
+            width: 50.0,
             child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: <Widget>[
@@ -136,12 +159,12 @@ class _CallSampleState extends State<CallSample> {
                     onPressed: () => _invitePeer(context, peer['id'], false),
                     tooltip: 'Video calling',
                   ),
-                  IconButton(
+                  /*IconButton(
                     icon: Icon(self ? Icons.close : Icons.screen_share,
                         color: self ? Colors.grey : Colors.black),
                     onPressed: () => _invitePeer(context, peer['id'], true),
                     tooltip: 'Screen sharing',
-                  )
+                  )*/
                 ])),
         subtitle: Text('[' + peer['user_agent'] + ']'),
       ),
@@ -153,7 +176,7 @@ class _CallSampleState extends State<CallSample> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('P2P Call Sample' +
+        title: Text('P2P Call' +
             (_selfId != null ? ' [Your ID ($_selfId)] ' : '')),
         actions: <Widget>[
           IconButton(

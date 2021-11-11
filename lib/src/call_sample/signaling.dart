@@ -4,9 +4,7 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 import 'random_string.dart';
 
-import '../utils/device_info.dart'
-    if (dart.library.js) '../utils/device_info_web.dart';
-import '../utils/websocket.dart'
+import '../utils/xmpp.dart'
     if (dart.library.js) '../utils/websocket_web.dart';
 import '../utils/turn.dart' if (dart.library.js) '../utils/turn_web.dart';
 
@@ -34,14 +32,16 @@ class Session {
 }
 
 class Signaling {
-  Signaling(this._host);
+  Signaling(this._host, this._pass);
 
   JsonEncoder _encoder = JsonEncoder();
   JsonDecoder _decoder = JsonDecoder();
   String _selfId = randomNumeric(6);
-  SimpleWebSocket? _socket;
+  //String _selfId = "u15@xmpp.apigate.pro/Smack";
+  XMPP? _socket;
   var _host;
-  var _port = 8086;
+  var _pass;
+  var _port = 8091;
   var _turnCredential;
   Map<String, Session> _sessions = {};
   MediaStream? _localStream;
@@ -62,15 +62,12 @@ class Signaling {
 
   Map<String, dynamic> _iceServers = {
     'iceServers': [
-      {'url': 'stun:stun.l.google.com:19302'},
-      /*
-       * turn server configuration example.
+       // turn server configuration
       {
-        'url': 'turn:123.45.67.89:3478',
+        'url': 'turn:$hostIP:3478',
         'username': 'change_to_real_user',
         'credential': 'change_to_real_secret'
       },
-      */
     ]
   };
 
@@ -108,6 +105,13 @@ class Signaling {
   }
 
   void invite(String peerId, String media, bool useScreen) async {
+
+    _send('peers', {
+      'name': "DeviceInfo.label",
+      'id': _selfId,
+      'user_agent': "DeviceInfo.userAgent"
+    });
+
     var sessionId = _selfId + '-' + peerId;
     Session session = await _createSession(null,
         peerId: peerId,
@@ -140,11 +144,12 @@ class Signaling {
     switch (mapData['type']) {
       case 'peers':
         {
-          List<dynamic> peers = data;
+         /* List<dynamic> peers = [];
+          peers.add(mapData['data']);*/
           if (onPeersUpdate != null) {
             Map<String, dynamic> event = Map<String, dynamic>();
             event['self'] = _selfId;
-            event['peers'] = peers;
+            event['peers'] = data;
             onPeersUpdate?.call(event);
           }
         }
@@ -232,21 +237,17 @@ class Signaling {
   }
 
   Future<void> connect() async {
-    var url = 'https://$_host:$_port/ws';
-    _socket = SimpleWebSocket(url);
+    //var url = 'https://$_host:$_port/ws';
+
+    _selfId = _pass;
+    var url = _host;
+    _socket = XMPP(_host, _pass);
 
     print('connect to $url');
 
     if (_turnCredential == null) {
       try {
-        _turnCredential = await getTurnCredential(_host, _port);
-        /*{
-            "username": "1584195784:mbzrxpgjys",
-            "password": "isyl6FF6nqMTB9/ig5MrMRUXqZg",
-            "ttl": 86400,
-            "uris": ["turn:127.0.0.1:19302?transport=udp"]
-          }
-        */
+        _turnCredential = await getTurnCredential(hostIP, _port);
         _iceServers = {
           'iceServers': [
             {
@@ -263,15 +264,22 @@ class Signaling {
       print('onOpen');
       onSignalingStateChange?.call(SignalingState.ConnectionOpen);
       _send('new', {
-        'name': DeviceInfo.label,
+        'name': "DeviceInfo.label",
         'id': _selfId,
-        'user_agent': DeviceInfo.userAgent
+        'user_agent': "DeviceInfo.userAgent"
       });
+
+      _send('peers', {
+        'name': "DeviceInfo.label",
+        'id': _selfId,
+        'user_agent': "DeviceInfo.userAgent"
+      });
+
     };
 
     _socket?.onMessage = (message) {
-      print('Received data: ' + message);
-      onMessage(_decoder.convert(message));
+      //print('Received data: ' + message['body']);
+      onMessage(_decoder.convert(message['body']));
     };
 
     _socket?.onClose = (int code, String reason) {
@@ -479,7 +487,9 @@ class Signaling {
     var request = Map();
     request["type"] = event;
     request["data"] = data;
+
     _socket?.send(_encoder.convert(request));
+
   }
 
   Future<void> _cleanSessions() async {

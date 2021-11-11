@@ -10,6 +10,12 @@
 @import flutter_webrtc;
 #endif
 
+#if __has_include(<flutter_xmpp/FlutterXmppPlugin.h>)
+#import <flutter_xmpp/FlutterXmppPlugin.h>
+#else
+@import flutter_xmpp;
+#endif
+
 #if __has_include(<path_provider/FLTPathProviderPlugin.h>)
 #import <path_provider/FLTPathProviderPlugin.h>
 #else
@@ -26,6 +32,7 @@
 
 + (void)registerWithRegistry:(NSObject<FlutterPluginRegistry>*)registry {
   [FlutterWebRTCPlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterWebRTCPlugin"]];
+  [FlutterXmppPlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterXmppPlugin"]];
   [FLTPathProviderPlugin registerWithRegistrar:[registry registrarForPlugin:@"FLTPathProviderPlugin"]];
   [FLTSharedPreferencesPlugin registerWithRegistrar:[registry registrarForPlugin:@"FLTSharedPreferencesPlugin"]];
 }
